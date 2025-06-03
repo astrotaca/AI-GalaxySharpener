@@ -33,6 +33,8 @@ This is a GUI application that uses a custom neural network to sharpen galaxy im
 - **Background Preservation**: Automatic sky region detection
 - **Navigation**: Zoom and pan with synchronized views
 
+![AstroSharpener GUI](readme/GUI.jpg)
+
 ## Installation
 
 **Requirements**: Windows, Python 3.8 or higher
