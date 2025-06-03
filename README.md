@@ -44,15 +44,18 @@ python -m venv venv310
 
 # Activate virtual environment
 venv310\Scripts\activate
+```
 
 ### 2. Install Dependencies
 ```bash
 pip install tensorflow>=2.8.0 PyQt5>=5.15.0 numpy opencv-python astropy tifffile matplotlib tqdm
+```
 
 ## Usage
 
 ```bash
 python main.py
+```
 
 1. Load an astronomical image (FITS/TIFF)
 2. Adjust enhancement strength and settings
@@ -75,6 +78,7 @@ The application processes images using:
 - **Real-time GUI**: Synchronized zoom/pan across multiple views
 
 ## File Structure
+```
 AstroSharpener/
 ├── main.py              # GUI application entry point
 ├── processor.py         # Image processing and model handling
@@ -83,4 +87,4 @@ AstroSharpener/
 ├── enhanced_loss.py     # Custom loss functions
 ├── models/              # Trained model files
 └── README.md
-
+```
