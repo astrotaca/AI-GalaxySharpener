@@ -8,6 +8,8 @@ This is a **learning project** and test implementation made for fun. I'm activel
 
 **⚠️ Important**: This tool is NOT intended for scientific research or analysis. Do not use enhanced images for scientific measurements or publications. Always use original, unprocessed data for any scientific work.
 
+![AstroSharpener GUI](readme/GUI.jpg)
+
 ## About
 
 This is a GUI application that uses a custom neural network to sharpen galaxy images. The model was trained on starless Hubble telescope images to learn enhancement patterns for astronomical photography.
@@ -32,8 +34,6 @@ This is a GUI application that uses a custom neural network to sharpen galaxy im
 - **Large Image Processing**: Tiled processing for memory efficiency
 - **Background Preservation**: Automatic sky region detection
 - **Navigation**: Zoom and pan with synchronized views
-
-![AstroSharpener GUI](readme/GUI.jpg)
 
 ## Installation
 
