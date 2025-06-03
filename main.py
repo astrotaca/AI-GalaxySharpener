@@ -531,8 +531,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("AstroSharpener")
         self.setMinimumSize(1200, 800)
         
-        # Initialize the sharpener
-        self.sharpener = AstroSharpener()
+        # Initialize the sharpener with the startup GPU setting
+        self.sharpener = AstroSharpener(use_gpu=True)
         self.input_image_data = None
         self.processed_image_data = None
         
@@ -640,7 +640,14 @@ class MainWindow(QMainWindow):
         
         advanced_group = QGroupBox("Advanced")
         advanced_layout = QVBoxLayout(advanced_group)
-        
+
+        # GPU/CPU selection
+        self.use_gpu_checkbox = QCheckBox("Use GPU Acceleration")
+        self.use_gpu_checkbox.setChecked(True)  # Default to GPU
+        self.use_gpu_checkbox.setToolTip("Use GPU for faster processing (requires compatible graphics card)\nModel will reload when changed")
+        self.use_gpu_checkbox.stateChanged.connect(self.on_gpu_setting_changed)
+        advanced_layout.addWidget(self.use_gpu_checkbox)
+
         # Tile size
         tile_layout = QHBoxLayout()
         tile_layout.addWidget(QLabel("Tile Size:"))
@@ -752,6 +759,12 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter)
         
         self.setCentralWidget(main_widget)
+
+    def on_gpu_setting_changed(self):
+        """Handle GPU setting change"""
+        new_setting = self.use_gpu_checkbox.isChecked()
+        device_name = "GPU" if new_setting else "CPU"
+        self.statusBar().showMessage(f"GPU/CPU setting changed to {device_name}. Will apply on next processing.")
 
     def create_styled_button(self, text, icon_name=None):
         """Create a styled button with optional icon"""
@@ -964,18 +977,24 @@ class MainWindow(QMainWindow):
             overlap = 96
             self.statusBar().showMessage("Warning: Overlap error, using default 96")
         
+        try:
+            use_gpu = self.use_gpu_checkbox.isChecked()
+        except (RuntimeError, AttributeError):
+            use_gpu = True
+            self.statusBar().showMessage("Warning: GPU checkbox error, using default GPU")
+
         params = {
             'strength': strength,
             'preserve_background': preserve_background,
             'tile_size': tile_size,
-            'overlap': overlap
+            'overlap': overlap,
+            'use_gpu': use_gpu
         }
         
-        # Disable controls during processing
-        try:
-            self.process_button.setEnabled(False)
-        except (RuntimeError, AttributeError):
-            pass
+        # Change button to abort mode
+        self.process_button.setText("Abort Processing")
+        self.process_button.clicked.disconnect()  # Remove old connection
+        self.process_button.clicked.connect(self.abort_processing)
         
         try:
             self.progress_bar.setValue(0)
@@ -994,6 +1013,12 @@ class MainWindow(QMainWindow):
         self.worker.status.connect(self.update_status)
         self.worker.finished.connect(self.processing_finished)
         self.worker.start()
+
+    def abort_processing(self):
+        """Abort the current processing"""
+        if hasattr(self, 'worker') and self.worker.isRunning():
+            self.worker.abort()
+            self.statusBar().showMessage("Abort requested - please wait...")
         
     def update_progress(self, value):
         """Update progress bar"""
@@ -1005,7 +1030,12 @@ class MainWindow(QMainWindow):
         
     def processing_finished(self, success, message, output_path=None):
         """Handle processing completion"""
+        # Reset button to normal mode
+        self.process_button.setText("Process Image")
+        self.process_button.clicked.disconnect()  # Remove abort connection
+        self.process_button.clicked.connect(self.process_image)  # Restore normal connection
         self.process_button.setEnabled(True)
+        
         self.statusBar().showMessage(message)
         
         if success and output_path and os.path.exists(output_path):

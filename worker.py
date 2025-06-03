@@ -14,6 +14,12 @@ class ProcessingWorker(QThread):
         self.input_path = input_path
         self.output_path = output_path
         self.params = params
+        self.abort_requested = False
+        
+    def abort(self):
+        """Request processing abort"""
+        self.abort_requested = True
+        self.status.emit("Aborting processing...")
         
     def run(self):
         try:
@@ -24,7 +30,7 @@ class ProcessingWorker(QThread):
             if output_dir and not os.path.exists(output_dir):
                 os.makedirs(output_dir)
                 
-            # Process the image
+            # Process the image with abort checking
             success, _ = self.sharpener.process_image(
                 self.input_path, 
                 self.output_path,
@@ -32,16 +38,37 @@ class ProcessingWorker(QThread):
                 preserve_background=self.params['preserve_background'],
                 tile_size=self.params['tile_size'],
                 overlap=self.params['overlap'],
-                progress_callback=self.progress.emit,
-                status_callback=self.status.emit
+                use_gpu=self.params.get('use_gpu', True),
+                progress_callback=self.progress_with_abort_check,
+                status_callback=self.status_with_abort_check,
+                abort_callback=self.check_abort
             )
             
-            if success:
+            if self.abort_requested:
+                self.finished.emit(False, "Processing aborted by user.", "")
+            elif success:
                 self.finished.emit(True, "Processing complete!", self.output_path)
             else:
                 self.finished.emit(False, "Processing failed.", "")
                 
         except Exception as e:
-            error_trace = traceback.format_exc()
-            print(f"Processing error: {error_trace}")
-            self.finished.emit(False, f"Error: {str(e)}", "")
+            if self.abort_requested:
+                self.finished.emit(False, "Processing aborted.", "")
+            else:
+                error_trace = traceback.format_exc()
+                print(f"Processing error: {error_trace}")
+                self.finished.emit(False, f"Error: {str(e)}", "")
+    
+    def progress_with_abort_check(self, value):
+        """Progress callback that checks for abort"""
+        if not self.abort_requested:
+            self.progress.emit(value)
+    
+    def status_with_abort_check(self, message):
+        """Status callback that checks for abort"""
+        if not self.abort_requested:
+            self.status.emit(message)
+    
+    def check_abort(self):
+        """Check if abort was requested"""
+        return self.abort_requested

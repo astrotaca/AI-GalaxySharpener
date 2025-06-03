@@ -12,21 +12,73 @@ except ImportError:
     print("Warning: enhanced_loss module not found. Models may not load correctly.")
 
 class AstroSharpener:
-    def __init__(self):
+    def __init__(self, use_gpu=True):
         self.models = {}
         self.current_model = None
         self.current_model_name = None
         self.models_path = "models"
+        self.use_gpu = use_gpu
         
-        # Configure GPU memory growth
-        gpus = tf.config.list_physical_devices('GPU')
-        if gpus:
-            for gpu in gpus:
-                try:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                    print(f"Enabled memory growth for GPU: {gpu}")
-                except:
-                    print(f"Failed to enable memory growth for GPU: {gpu}")
+        # Configure initial device
+        self.configure_device()
+    
+    def configure_device(self):
+        """Configure TensorFlow device usage"""
+        if self.use_gpu:
+            try:
+                gpus = tf.config.list_physical_devices('GPU')
+                if gpus:
+                    for gpu in gpus:
+                        tf.config.experimental.set_memory_growth(gpu, True)
+                    print(f"GPU enabled - found {len(gpus)} GPU(s)")
+                else:
+                    print("No GPU found - using CPU for processing")
+                    self.use_gpu = False  # Fallback to CPU
+            except Exception as e:
+                print(f"GPU configuration failed: {e} - using CPU")
+                self.use_gpu = False
+        else:
+            print("CPU processing enabled")
+    
+    def switch_device(self, use_gpu):
+        """Switch between GPU and CPU processing"""
+        if use_gpu == self.use_gpu:
+            return True  # No change needed
+            
+        print(f"Switching from {'GPU' if self.use_gpu else 'CPU'} to {'GPU' if use_gpu else 'CPU'}")
+        
+        # Check if GPU is actually available
+        if use_gpu:
+            gpus = tf.config.list_physical_devices('GPU')
+            if not gpus:
+                print("GPU requested but none found - staying on CPU")
+                return False
+        
+        old_use_gpu = self.use_gpu
+        self.use_gpu = use_gpu
+        
+        # If we have a loaded model, reload it on the new device
+        if self.current_model is not None and self.current_model_name:
+            print(f"Reloading model '{self.current_model_name}' on {'GPU' if use_gpu else 'CPU'}")
+            
+            # Clear current model
+            self.current_model = None
+            self.models[self.current_model_name]['model'] = None
+            self.models[self.current_model_name]['loaded'] = False
+            
+            # Force garbage collection
+            import gc
+            gc.collect()
+            
+            # Reload model with new device setting
+            success = self.load_model(self.current_model_name)
+            if not success:
+                print("Failed to reload model on new device - reverting")
+                self.use_gpu = old_use_gpu
+                self.load_model(self.current_model_name)  # Reload on original device
+                return False
+        
+        return True
     
     def load_available_models(self):
         """Load all available models from the models directory"""
@@ -72,16 +124,12 @@ class AstroSharpener:
         return sorted(list(types))
     
     def load_model(self, model_name):
-        """Load a specific model into memory"""
+        """Load a specific model into memory with current device setting"""
         if model_name not in self.models:
             print(f"Model {model_name} not found")
             return False
             
-        if self.models[model_name]['loaded']:
-            self.current_model = self.models[model_name]['model']
-            self.current_model_name = model_name
-            return True
-            
+        # Always reload if device setting changed
         try:
             custom_objects = {
                 'AstronomicalLossWrapper': AstronomicalLossWrapper,
@@ -89,13 +137,24 @@ class AstroSharpener:
             }
             
             model_path = self.models[model_name]['path']
-            model = tf.keras.models.load_model(model_path, custom_objects=custom_objects, compile=False)
+            
+            # Use device context for loading
+            device_name = '/GPU:0' if self.use_gpu else '/CPU:0'
+            
+            print(f"Loading model on device: {device_name}")
+            
+            with tf.device(device_name):
+                model = tf.keras.models.load_model(model_path, custom_objects=custom_objects, compile=False)
             
             self.models[model_name]['model'] = model
             self.models[model_name]['loaded'] = True
             self.current_model = model
             self.current_model_name = model_name
+            
+            device_type = "GPU" if self.use_gpu else "CPU"
+            print(f"Model {model_name} loaded successfully on {device_type}")
             return True
+            
         except Exception as e:
             print(f"Error loading model {model_name}: {e}")
             return False
@@ -134,12 +193,28 @@ class AstroSharpener:
             return original * (1 - strength) + processed * strength
     
     def process_image(self, input_path, output_path, strength=1.0, preserve_background=True, 
-                     tile_size=128, overlap=64, progress_callback=None, status_callback=None):
+                    tile_size=128, overlap=64, use_gpu=None, progress_callback=None, 
+                    status_callback=None, abort_callback=None):
         """Process an image with the currently loaded model"""
         if self.current_model is None:
             if status_callback:
                 status_callback("No model loaded")
             return False
+
+        # Handle device switching
+        if use_gpu is not None and use_gpu != self.use_gpu:
+            if status_callback:
+                device_name = "GPU" if use_gpu else "CPU"
+                status_callback(f"Switching to {device_name} processing...")
+            
+            success = self.switch_device(use_gpu)
+            if not success:
+                if status_callback:
+                    status_callback("Failed to switch device - using current setting")
+            else:
+                if status_callback:
+                    device_name = "GPU" if self.use_gpu else "CPU"
+                    status_callback(f"Now using {device_name} for processing")
         
         # Load image
         if status_callback:
@@ -196,7 +271,19 @@ class AstroSharpener:
         # Process tiles
         current_tile = 0
         for y in tqdm(y_steps, desc="Processing rows", disable=progress_callback is None):
+            # Check for abort at the start of each row
+            if abort_callback and abort_callback():
+                if status_callback:
+                    status_callback("Processing aborted")
+                return False, None
+                
             for x in x_steps:
+                # Check for abort every few tiles
+                if abort_callback and abort_callback():
+                    if status_callback:
+                        status_callback("Processing aborted")
+                    return False, None
+                    
                 current_tile += 1
                 if progress_callback:
                     progress_percent = int((current_tile / total_tiles) * 100)
