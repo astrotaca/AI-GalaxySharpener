@@ -1,0 +1,8 @@
+tensorflow==2.10.1
+numpy==1.23.5
+opencv-python==4.7.0.72
+PyQt5==5.15.9
+matplotlib==3.7.2
+tqdm==4.65.0
+tifffile>=2021.4.8
+astropy>=4.0.0

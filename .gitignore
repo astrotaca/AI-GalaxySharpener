@@ -1,0 +1,32 @@
+# Virtual environment
+venv310/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary processing files
+temp/
+sample_process.png
+histogram_comparison.png
+
+# Personal test images (could be large)
+*.fits
+*.fit
+*.tif
+*.tiff
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
