@@ -4,7 +4,7 @@ AI-powered tool for enhancing astronomical galaxy images using deep learning.
 
 ## Disclaimer
 
-This is a **learning project** and test implementation made for fun. I'm actively training a new model that will be significantly more accurate. The current version taught me a lot about astronomical image processing and deep learning, and the next iteration will address the current limitations.
+This is a **learning project** and test implementation made for fun. This model learned that noise = sharpness, but I'm actively training a new model that will be significantly more accurate. The current version taught me a lot about astronomical image processing and deep learning, and the next iteration will address the current limitations.
 
 **⚠️ Important**: This tool is NOT intended for scientific research or analysis. Do not use enhanced images for scientific measurements or publications. Always use original, unprocessed data for any scientific work.
 
@@ -30,6 +30,8 @@ This is a GUI application that uses a custom neural network to sharpen galaxy im
 
 - **Image Support**: Load FITS and TIFF astronomical images
 - **Enhancement Control**: Adjustable strength (0.1× to 2.0×)
+- **GPU/CPU Switching**: Dynamic hardware acceleration switching without restart
+- **Processing Abort**: Cancel processing operations with abort button
 - **Comparison View**: Before/after with draggable divider
 - **Large Image Processing**: Tiled processing for memory efficiency
 - **Background Preservation**: Automatic sky region detection
